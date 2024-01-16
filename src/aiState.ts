@@ -47,7 +47,7 @@ import { MemoryVectorStore } from "langchain/vectorstores/memory";
 import { Notice } from 'obsidian';
 import { useState } from 'react';
 import { ProxyChatOpenAI, ProxyOpenAIEmbeddings } from './langchainWrappers';
-
+import { chatGemini } from '@/geminiApi';
 
 interface ModelConfig {
   modelName: string,
@@ -621,117 +621,18 @@ class AIState {
     abortController: AbortController,
     updateCurrentAiMessage: (message: string) => void,
     addMessage: (message: ChatMessage) => void,
+    chatContext: ChatMessage[],
     debug = false,
   ) {
-    if (!this.validateChatModel(AIState.chatModel)) {
-      const errorMsg = 'Chat model is not initialized properly, check your API key in Copilot setting and make sure you have API access.';
-      new Notice(errorMsg);
-      console.error(errorMsg);
-      return;
+    let fullAIResponse = await chatGemini(this.langChainParams.openAIApiKey, userMessage, chatContext);
+    if (fullAIResponse) {
+      addMessage({
+        message: fullAIResponse,
+        sender: AI_SENDER,
+        isVisible: true,
+      });
     }
-    // Check if chain is initialized properly
-    if (!AIState.chain || !isSupportedChain(AIState.chain)) {
-      console.error(
-        'Chain is not initialized properly, re-initializing chain: ',
-        this.langChainParams.chainType
-      );
-      this.setChain(this.langChainParams.chainType, this.langChainParams.options);
-    }
-
-    const {
-      temperature,
-      maxTokens,
-      systemMessage,
-      chatContextTurns,
-      chainType,
-    } = this.langChainParams;
-
-    let fullAIResponse = '';
-    const chain = AIState.chain as any;
-    try {
-      switch(chainType) {
-        case ChainType.LLM_CHAIN:
-          if (debug) {
-            console.log(`*** DEBUG INFO ***\n`
-              + `user message: ${userMessage}\n`
-              + `model: ${chain.llm.modelName}\n`
-              + `chain type: ${chainType}\n`
-              + `temperature: ${temperature}\n`
-              + `maxTokens: ${maxTokens}\n`
-              + `system message: ${systemMessage}\n`
-              + `chat context turns: ${chatContextTurns}\n`,
-            );
-            console.log('chain:', chain);
-            console.log('Chat memory:', this.memory);
-          }
-          await AIState.chain.call(
-            {
-              input: userMessage,
-              signal: abortController.signal,
-            },
-            [
-              {
-                handleLLMNewToken: (token) => {
-                  fullAIResponse += token;
-                  updateCurrentAiMessage(fullAIResponse);
-                }
-              }
-            ]
-          );
-          break;
-        case ChainType.RETRIEVAL_QA_CHAIN:
-          if (debug) {
-            console.log(`*** DEBUG INFO ***\n`
-              + `user message: ${userMessage}\n`
-              + `model: ${chain.llm.modelName}\n`
-              + `chain type: ${chainType}\n`
-              + `temperature: ${temperature}\n`
-              + `maxTokens: ${maxTokens}\n`
-              + `system message: ${systemMessage}\n`
-              + `chat context turns: ${chatContextTurns}\n`,
-            );
-            console.log('chain:', chain);
-            console.log('embedding provider:', this.langChainParams.embeddingProvider);
-          }
-          await AIState.retrievalChain.call(
-            {
-              query: userMessage,
-              signal: abortController.signal,
-            },
-            [
-              {
-                handleLLMNewToken: (token) => {
-                  fullAIResponse += token;
-                  updateCurrentAiMessage(fullAIResponse);
-                }
-              }
-            ]
-          );
-          break;
-        default:
-          console.error('Chain type not supported:', this.langChainParams.chainType);
-      }
-    } catch (error) {
-      const errorData = error?.response?.data?.error || error;
-      const errorCode = errorData?.code || error;
-      if (errorCode === 'model_not_found') {
-        const modelNotFoundMsg = "You do not have access to this model or the model does not exist, please check with your API provider.";
-        new Notice(modelNotFoundMsg);
-        console.error(modelNotFoundMsg);
-      } else {
-        new Notice(`LangChain error: ${errorCode}`);
-        console.error(errorData);
-      }
-    } finally {
-      if (fullAIResponse) {
-        addMessage({
-          message: fullAIResponse,
-          sender: AI_SENDER,
-          isVisible: true,
-        });
-      }
-      updateCurrentAiMessage('');
-    }
+    updateCurrentAiMessage('');
     return fullAIResponse;
   }
 }
@@ -742,12 +643,12 @@ class AIState {
 export function useAIState(
   aiState: AIState,
 ): [
-  string,
-  (model: string) => void,
-  ChainType,
-  (chain: ChainType, options?: SetChainOptions) => void,
-  () => void,
-] {
+    string,
+    (model: string) => void,
+    ChainType,
+    (chain: ChainType, options?: SetChainOptions) => void,
+    () => void,
+  ] {
   const { langChainParams } = aiState;
   const [currentModel, setCurrentModel] = useState<string>(langChainParams.modelDisplayName);
   const [currentChain, setCurrentChain] = useState<ChainType>(langChainParams.chainType);

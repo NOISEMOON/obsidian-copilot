@@ -6,6 +6,7 @@ import {
 import { ChatMessage } from '@/sharedState';
 import { Notice, requestUrl } from 'obsidian';
 import { SSE } from 'sse';
+import { chatGemini } from '@/geminiApi';
 
 export type Role = 'assistant' | 'user' | 'system';
 
@@ -24,7 +25,7 @@ export interface OpenAiParams {
 export class OpenAIRequestManager {
   stopRequested = false;
 
-  constructor() {}
+  constructor() { }
 
   stopStreaming() {
     this.stopRequested = true;
@@ -79,10 +80,10 @@ export class OpenAIRequestManager {
 
         const addAiMessageToChatHistory = (aiResponse: string) => {
           const botMessage: ChatMessage = {
-              message: aiResponse,
-              sender: AI_SENDER,
-              isVisible: true,
-            };
+            message: aiResponse,
+            sender: AI_SENDER,
+            isVisible: true,
+          };
           addMessage(botMessage);
           updateCurrentAiMessage('');
         }
@@ -252,4 +253,12 @@ export const getAIResponse = async (
       console.error(error);
     }
   }
+
+  const aiResponse = await chatGemini(openAiParams.key, systemPrompt, []);
+  const botMessage: ChatMessage = {
+    message: aiResponse,
+    sender: AI_SENDER,
+    isVisible: true,
+  };
+  addMessage(botMessage);
 };

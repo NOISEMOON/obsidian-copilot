@@ -2,7 +2,7 @@ import { CopilotSettings } from '@/main';
 
 export const CHAT_VIEWTYPE = 'copilot-chat-view';
 export const USER_SENDER = 'user';
-export const AI_SENDER = 'ai';
+export const AI_SENDER = 'model';
 export const DEFAULT_SYSTEM_PROMPT = 'You are Obsidian Copilot, a helpful assistant that integrates AI to Obsidian note-taking.';
 
 export enum ChatModels {

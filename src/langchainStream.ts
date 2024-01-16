@@ -24,6 +24,7 @@ export const getAIResponse = async (
       abortController,
       updateCurrentAiMessage,
       addMessage,
+      chatContext,
       debug,
     );
   } catch (error) {
